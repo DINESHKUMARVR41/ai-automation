@@ -1,0 +1,424 @@
+{
+  "name": "Certificate Automation Workflow",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "c89e3f42-6b3a-4a1a-8e5f-9d4e6f8c3a2b",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        240,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID",
+          "mode": "list",
+          "cachedResultName": "Participant Data"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Sheet1",
+          "mode": "list",
+          "cachedResultName": "Sheet1"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": []
+        },
+        "options": {}
+      },
+      "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+      "name": "Read Google Sheet",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.4,
+      "position": [
+        460,
+        300
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "YOUR_GOOGLE_CREDENTIALS_ID",
+          "name": "Google Sheets Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": ""
+          },
+          "conditions": [
+            {
+              "id": "condition1",
+              "leftValue": "={{ $json.status }}",
+              "rightValue": "Completed",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            },
+            {
+              "id": "condition2",
+              "leftValue": "={{ $json.email }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "isNotEmpty"
+              }
+            },
+            {
+              "id": "condition3",
+              "leftValue": "={{ $json.name }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "isNotEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "b2c3d4e5-f6g7-8901-bcde-f12345678901",
+      "name": "Filter Completed Participants",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2,
+      "position": [
+        680,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Clean and format participant data\nconst name = $input.item.json.name.trim();\nconst email = $input.item.json.email.trim().toLowerCase();\nconst certificateId = `CERT-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;\nconst issueDate = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });\n\nreturn {\n  json: {\n    name: name,\n    email: email,\n    certificateId: certificateId,\n    issueDate: issueDate,\n    workshopTitle: 'Artificial Intelligence Workshop',\n    workshopDuration: '2 Days',\n    collegeName: 'Your College Name',\n    timestamp: new Date().toISOString()\n  }\n};"
+      },
+      "id": "c3d4e5f6-g7h8-9012-cdef-123456789012",
+      "name": "Process Participant Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        900,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Remove duplicate emails (keep first occurrence)\nconst items = $input.all();\nconst seen = new Set();\nconst uniqueItems = [];\n\nfor (const item of items) {\n  const email = item.json.email;\n  if (!seen.has(email)) {\n    seen.add(email);\n    uniqueItems.push(item);\n  }\n}\n\nreturn uniqueItems;"
+      },
+      "id": "d4e5f6g7-h8i9-0123-defg-234567890123",
+      "name": "Remove Duplicates",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1120,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://api.imgbb.com/1/upload",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpQueryAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "key",
+              "value": "YOUR_IMGBB_API_KEY"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "image",
+              "value": "={{ $json.certificateBase64 }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "e5f6g7h8-i9j0-1234-efgh-345678901234",
+      "name": "Upload Certificate to Cloud",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1560,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Generate certificate using HTML/CSS template\nconst name = $input.item.json.name;\nconst certificateId = $input.item.json.certificateId;\nconst issueDate = $input.item.json.issueDate;\nconst workshopTitle = $input.item.json.workshopTitle;\nconst workshopDuration = $input.item.json.workshopDuration;\nconst collegeName = $input.item.json.collegeName;\n\nconst certificateHTML = `\n<!DOCTYPE html>\n<html>\n<head>\n<style>\n  @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Montserrat:wght@400;600&display=swap');\n  \n  body {\n    margin: 0;\n    padding: 40px;\n    font-family: 'Montserrat', sans-serif;\n    background: white;\n  }\n  \n  .certificate {\n    width: 1200px;\n    height: 850px;\n    border: 20px solid #1a5490;\n    padding: 60px;\n    position: relative;\n    background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);\n    box-shadow: 0 0 30px rgba(0,0,0,0.1);\n  }\n  \n  .border-design {\n    position: absolute;\n    top: 30px;\n    left: 30px;\n    right: 30px;\n    bottom: 30px;\n    border: 3px solid #d4af37;\n  }\n  \n  .header {\n    text-align: center;\n    margin-bottom: 40px;\n  }\n  \n  .title {\n    font-size: 60px;\n    font-family: 'Playfair Display', serif;\n    color: #1a5490;\n    margin: 20px 0;\n    letter-spacing: 4px;\n  }\n  \n  .subtitle {\n    font-size: 24px;\n    color: #666;\n    margin: 10px 0;\n  }\n  \n  .content {\n    text-align: center;\n    margin: 60px 0;\n  }\n  \n  .presented-to {\n    font-size: 20px;\n    color: #666;\n    margin-bottom: 20px;\n  }\n  \n  .recipient-name {\n    font-size: 56px;\n    font-family: 'Playfair Display', serif;\n    color: #1a5490;\n    margin: 30px 0;\n    border-bottom: 3px solid #d4af37;\n    padding-bottom: 10px;\n    display: inline-block;\n  }\n  \n  .description {\n    font-size: 18px;\n    color: #444;\n    line-height: 1.8;\n    margin: 40px 80px;\n  }\n  \n  .footer {\n    display: flex;\n    justify-content: space-between;\n    margin-top: 80px;\n    padding: 0 100px;\n  }\n  \n  .signature-block {\n    text-align: center;\n  }\n  \n  .signature-line {\n    border-top: 2px solid #333;\n    width: 200px;\n    margin: 20px auto 10px;\n  }\n  \n  .signature-label {\n    font-size: 14px;\n    color: #666;\n    font-weight: 600;\n  }\n  \n  .cert-id {\n    position: absolute;\n    bottom: 20px;\n    left: 50%;\n    transform: translateX(-50%);\n    font-size: 12px;\n    color: #999;\n  }\n</style>\n</head>\n<body>\n  <div class=\"certificate\">\n    <div class=\"border-design\"></div>\n    \n    <div class=\"header\">\n      <div class=\"subtitle\">Certificate of Completion</div>\n      <div class=\"title\">ACHIEVEMENT</div>\n    </div>\n    \n    <div class=\"content\">\n      <div class=\"presented-to\">This certificate is proudly presented to</div>\n      <div class=\"recipient-name\">${name}</div>\n      \n      <div class=\"description\">\n        For successfully completing the <strong>${workshopTitle}</strong>,\n        a comprehensive ${workshopDuration} program organized by <strong>${collegeName}</strong>.\n        <br><br>\n        This achievement demonstrates dedication to learning and professional development\n        in the field of Artificial Intelligence.\n      </div>\n    </div>\n    \n    <div class=\"footer\">\n      <div class=\"signature-block\">\n        <div class=\"signature-line\"></div>\n        <div class=\"signature-label\">Workshop Coordinator</div>\n      </div>\n      \n      <div class=\"signature-block\">\n        <div style=\"margin-bottom: 20px; color: #1a5490; font-size: 16px;\">${issueDate}</div>\n        <div style=\"font-size: 14px; color: #666;\">Date of Issue</div>\n      </div>\n      \n      <div class=\"signature-block\">\n        <div class=\"signature-line\"></div>\n        <div class=\"signature-label\">Principal</div>\n      </div>\n    </div>\n    \n    <div class=\"cert-id\">Certificate ID: ${certificateId}</div>\n  </div>\n</body>\n</html>\n`;\n\nreturn {\n  json: {\n    ...($input.item.json),\n    certificateHTML: certificateHTML\n  }\n};"
+      },
+      "id": "f6g7h8i9-j0k1-2345-fghi-456789012345",
+      "name": "Generate Certificate HTML",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1340,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "certificates@yourcollege.edu",
+        "toEmail": "={{ $json.email }}",
+        "subject": "🎓 Your AI Workshop Certificate - {{ $json.name }}",
+        "emailType": "html",
+        "message": "=<!DOCTYPE html>\n<html>\n<head>\n<style>\n  body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }\n  .container { max-width: 600px; margin: 0 auto; padding: 20px; }\n  .header { background: linear-gradient(135deg, #1a5490 0%, #2d7ab9 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }\n  .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }\n  .button { display: inline-block; background: #1a5490; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; margin: 20px 0; }\n  .footer { text-align: center; margin-top: 30px; color: #666; font-size: 14px; }\n  .cert-id { background: #e8f4f8; padding: 10px; border-left: 4px solid #1a5490; margin: 20px 0; }\n</style>\n</head>\n<body>\n<div class=\"container\">\n  <div class=\"header\">\n    <h1>🎓 Congratulations!</h1>\n  </div>\n  <div class=\"content\">\n    <h2>Dear {{ $json.name }},</h2>\n    <p>Congratulations on successfully completing the <strong>{{ $json.workshopTitle }}</strong>!</p>\n    \n    <p>We're thrilled to present you with your official certificate of completion. This certificate recognizes your commitment to learning and your achievement in the field of Artificial Intelligence.</p>\n    \n    <div class=\"cert-id\">\n      <strong>Certificate ID:</strong> {{ $json.certificateId }}<br>\n      <strong>Issue Date:</strong> {{ $json.issueDate }}\n    </div>\n    \n    <p><strong>Your certificate is attached to this email as a PDF.</strong></p>\n    \n    <p>We hope this workshop has enriched your knowledge and skills. Keep learning and growing!</p>\n    \n    <p>Best regards,<br>\n    <strong>Workshop Coordination Team</strong><br>\n    {{ $json.collegeName }}</p>\n  </div>\n  <div class=\"footer\">\n    <p>This is an automated email. Please do not reply to this message.</p>\n    <p>If you have any questions, contact us at workshops@yourcollege.edu</p>\n  </div>\n</div>\n</body>\n</html>",
+        "options": {
+          "attachments": "certificateData={{ $json.certificateHTML }}",
+          "allowUnauthorizedCerts": false
+        }
+      },
+      "id": "g7h8i9j0-k1l2-3456-ghij-567890123456",
+      "name": "Send Email with Certificate",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        1780,
+        300
+      ],
+      "credentials": {
+        "smtp": {
+          "id": "YOUR_SMTP_CREDENTIALS_ID",
+          "name": "SMTP Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_LOG_SHEET_ID",
+          "mode": "list",
+          "cachedResultName": "Certificate Log"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Certificates Sent",
+          "mode": "list",
+          "cachedResultName": "Certificates Sent"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Name": "={{ $json.name }}",
+            "Email": "={{ $json.email }}",
+            "Certificate ID": "={{ $json.certificateId }}",
+            "Issue Date": "={{ $json.issueDate }}",
+            "Sent Timestamp": "={{ $json.timestamp }}",
+            "Status": "Sent Successfully",
+            "Certificate URL": "={{ $json.certificateUrl }}"
+          },
+          "matchingColumns": [
+            "Email"
+          ],
+          "schema": []
+        },
+        "options": {}
+      },
+      "id": "h8i9j0k1-l2m3-4567-hijk-678901234567",
+      "name": "Log to Google Sheet",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.4,
+      "position": [
+        2000,
+        300
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "YOUR_GOOGLE_CREDENTIALS_ID",
+          "name": "Google Sheets Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Extract certificate URL from upload response\nconst uploadResponse = $input.item.json;\nconst certificateUrl = uploadResponse?.data?.url || 'Upload failed';\n\nreturn {\n  json: {\n    ...($input.item.json),\n    certificateUrl: certificateUrl\n  }\n};"
+      },
+      "id": "i9j0k1l2-m3n4-5678-ijkl-789012345678",
+      "name": "Extract Certificate URL",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1780,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.email }}",
+              "operation": "isNotEmpty"
+            }
+          ]
+        }
+      },
+      "id": "j0k1l2m3-n4o5-6789-jklm-890123456789",
+      "name": "Check Email Sent",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        2000,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 📋 Setup Instructions\n\n### 1. Google Sheets Setup\n- Create a Google Sheet with columns: name, email, status\n- Create another sheet called \"Certificates Sent\" for logging\n- Replace YOUR_GOOGLE_SHEET_ID and YOUR_LOG_SHEET_ID\n\n### 2. Email Configuration\n- Set up SMTP credentials (Gmail, SendGrid, etc.)\n- Update fromEmail address\n- Replace YOUR_SMTP_CREDENTIALS_ID\n\n### 3. Optional: Image Hosting\n- Get free ImgBB API key from https://api.imgbb.com/\n- Or use Cloudinary/another service\n- Update YOUR_IMGBB_API_KEY\n\n### 4. Customize\n- Update college name in the code\n- Modify certificate design in HTML\n- Adjust email template\n\n### 5. Test\n- Run with 1-2 test entries first\n- Verify emails are received\n- Check certificate quality",
+        "height": 464,
+        "width": 389
+      },
+      "id": "k1l2m3n4-o5p6-7890-klmn-901234567890",
+      "name": "Setup Instructions",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        220,
+        480
+      ]
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Read Google Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Google Sheet": {
+      "main": [
+        [
+          {
+            "node": "Filter Completed Participants",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Completed Participants": {
+      "main": [
+        [
+          {
+            "node": "Process Participant Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Participant Data": {
+      "main": [
+        [
+          {
+            "node": "Remove Duplicates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Remove Duplicates": {
+      "main": [
+        [
+          {
+            "node": "Generate Certificate HTML",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Certificate HTML": {
+      "main": [
+        [
+          {
+            "node": "Upload Certificate to Cloud",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload Certificate to Cloud": {
+      "main": [
+        [
+          {
+            "node": "Extract Certificate URL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Certificate URL": {
+      "main": [
+        [
+          {
+            "node": "Send Email with Certificate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Email with Certificate": {
+      "main": [
+        [
+          {
+            "node": "Check Email Sent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Email Sent": {
+      "main": [
+        [
+          {
+            "node": "Log to Google Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 0,
+  "updatedAt": "2025-11-01T00:00:00.000Z",
+  "versionId": "1"
+}
